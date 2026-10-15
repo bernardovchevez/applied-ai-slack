@@ -1,0 +1,26 @@
+{
+  "name": "applied-ai-slack",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Decoupled Slack Bolt client for the Applied AI Platform BFF (RAG Q&A, multi-agent clearance workflows, and human-in-the-loop Block Kit approvals).",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "dev": "APP_ENV=localhost tsc --watch --preserveWatchOutput",
+    "start": "node dist/src/index.js",
+    "start:localhost": "APP_ENV=localhost node dist/src/index.js",
+    "start:stage": "APP_ENV=stage node dist/src/index.js",
+    "start:prod": "APP_ENV=production node dist/src/index.js",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc -p tsconfig.json && node --test dist/test/slack.test.js"
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.1.0",
+    "@slack/types": "^2.14.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

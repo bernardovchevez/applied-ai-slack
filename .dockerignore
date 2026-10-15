@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.gitignore
+.env*
+!.env.localhost.example
+!.env.stage.example
+!.env.production.example
+.DS_Store
+.cursor
+README.md
+test

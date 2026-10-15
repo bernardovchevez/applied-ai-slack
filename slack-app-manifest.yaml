@@ -1,0 +1,37 @@
+display_information:
+  name: Media Ops AI Assistant
+  description: Grounded RAG Q&A and multi-agent rights clearance workflows for media operations
+  background_color: "#0f172a"
+features:
+  bot_user:
+    display_name: media-ops
+    always_online: true
+  slash_commands:
+    - command: /media-ask
+      description: Ask a grounded question over the media operations document corpus
+      usage_hint: "Is the theme song cleared for EMEA streaming?"
+      should_escape: false
+    - command: /media-clearance
+      description: Run the multi-agent clearance workflow with human-in-the-loop approval
+      usage_hint: "Prepare clearance summary for Harbor Line S01E04 EMEA launch"
+      should_escape: false
+    - command: /media-status
+      description: Check Applied AI Platform BFF health, environment, and index status
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - chat:write
+      - commands
+      - im:history
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.im
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
