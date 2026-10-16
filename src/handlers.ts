@@ -15,12 +15,16 @@ import {
   buildRagAnswerBlocks,
   decodeFeedbackValue,
 } from "./blocks";
-
-const CLEARANCE_INTENT_RE =
-  /\b(clearance summary|production brief|draft brief|launch summary|prepare.*clearance)\b/i;
+import {
+  dispatchMediaOpsQuery,
+  isDirectMessage,
+  isUserTextMessage,
+  slackThreadSessionId,
+  stripLeadingBotMention,
+} from "./routing";
 
 /**
- * Register all slash commands, @media-ops mentions, and interactive Block Kit button handlers.
+ * Register all slash commands, @media-ops mentions, DMs, and interactive Block Kit button handlers.
  */
 export function registerSlackHandlers(app: App): void {
   // 1. /media-ask <question> -> Grounded RAG stream (compact format)
@@ -119,51 +123,34 @@ export function registerSlackHandlers(app: App): void {
 
   // 4. @media-ops mention in channels -> routes to clearance agent or RAG Q&A in thread
   app.event("app_mention", async ({ event, say }) => {
-    const cleaned = event.text.replace(/<@[A-Z0-9]+>/g, "").trim();
+    const cleaned = stripLeadingBotMention(event.text ?? "");
     const threadTs = event.thread_ts ?? event.ts;
-    if (!cleaned) {
-      await say({
-        thread_ts: threadTs,
-        text: "Ask me a media ops question or request a clearance brief (for example: `@media-ops Is Harbor Line cleared for EMEA streaming?`).",
-      });
-      return;
-    }
-
-    const sessionId = `slack-thread-${event.channel}-${threadTs}`;
-    try {
-      if (CLEARANCE_INTENT_RE.test(cleaned)) {
-        const res = await runAgent({ prompt: cleaned, sessionId, autoApprove: false });
-        if (isAgentPaused(res)) {
-          await say({
-            thread_ts: threadTs,
-            text: `Clearance workflow awaiting approval (${res.thread_id})`,
-            blocks: buildAgentPausedBlocks(res),
-          });
-        } else {
-          await say({
-            thread_ts: threadTs,
-            text: res.answer,
-            blocks: buildAgentResolvedBlocks(res, { threadId: sessionId, prompt: cleaned }),
-          });
-        }
-      } else {
-        const rag = await askRag(cleaned, sessionId);
-        await say({
-          thread_ts: threadTs,
-          text: rag.answer,
-          blocks: buildRagAnswerBlocks(rag),
-        });
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "BFF request failed";
-      await say({
-        thread_ts: threadTs,
-        text: `Error communicating with Applied AI Platform BFF: ${msg}`,
-      });
-    }
+    const sessionId = slackThreadSessionId(event.channel, threadTs);
+    await dispatchMediaOpsQuery({
+      prompt: cleaned,
+      sessionId,
+      threadTs,
+      say,
+    });
   });
 
-  // 5. Interactive Block Kit button: Approve & Publish / Reject Draft
+  // 5. Direct messages (message.im) -> same routing as @media-ops without a mention
+  app.event("message", async ({ event, say }) => {
+    if (event.subtype && event.subtype !== "file_share") return;
+    if (!isDirectMessage(event)) return;
+    if (!isUserTextMessage(event)) return;
+
+    const threadTs = event.thread_ts ?? event.ts;
+    const sessionId = slackThreadSessionId(event.channel, threadTs);
+    await dispatchMediaOpsQuery({
+      prompt: (event.text ?? "").trim(),
+      sessionId,
+      threadTs,
+      say,
+    });
+  });
+
+  // 6. Interactive Block Kit button: Approve & Publish / Reject Draft
   const handleAgentDecision = (decision: "approve" | "reject") =>
     async ({ ack, body, action, respond }: {
       ack: () => Promise<void>;
@@ -197,7 +184,7 @@ export function registerSlackHandlers(app: App): void {
   app.action<BlockAction<ButtonAction>>("agent_approve", handleAgentDecision("approve"));
   app.action<BlockAction<ButtonAction>>("agent_reject", handleAgentDecision("reject"));
 
-  // 6. Interactive Block Kit button: Helpful / Needs work feedback
+  // 7. Interactive Block Kit button: Helpful / Needs work feedback
   const handleFeedback = (rating: "up" | "down") =>
     async ({ ack, action, respond }: {
       ack: () => Promise<void>;

@@ -19,6 +19,13 @@ import {
   encodeFeedbackValue,
   toSlackMrkdwn,
 } from "../src/blocks";
+import {
+  isClearancePrompt,
+  isDirectMessage,
+  isUserTextMessage,
+  slackThreadSessionId,
+  stripLeadingBotMention,
+} from "../src/routing";
 
 describe("Environment & BFF Headers", () => {
   it("normalizes APP_ENV aliases to localhost, stage, or production", () => {
@@ -91,6 +98,26 @@ describe("SSE Framing & Stream Parsing", () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+});
+
+describe("Media ops routing (mentions + DMs)", () => {
+  it("strips bot mentions and detects clearance intent", () => {
+    assert.equal(stripLeadingBotMention("<@U1> Is EMEA cleared?"), "Is EMEA cleared?");
+    assert.equal(isClearancePrompt("Prepare clearance summary for Harbor Line"), true);
+    assert.equal(isClearancePrompt("Is EMEA cleared?"), false);
+  });
+
+  it("builds stable thread session ids", () => {
+    assert.equal(slackThreadSessionId("C123", "1234.5678"), "slack-thread-C123-1234.5678");
+  });
+
+  it("filters DM user text messages", () => {
+    assert.equal(isDirectMessage({ channel_type: "im" }), true);
+    assert.equal(isDirectMessage({ channel_type: "channel" }), false);
+    assert.equal(isUserTextMessage({ text: "hello" }), true);
+    assert.equal(isUserTextMessage({ text: "hello", bot_id: "B1" }), false);
+    assert.equal(isUserTextMessage({ text: "x", subtype: "message_changed" }), false);
   });
 });
 

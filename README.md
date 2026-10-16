@@ -18,7 +18,7 @@ workspace/
 |---------------|--------------|----------|
 | `/media-ask <question>` | `POST /v1/chat/stream` (SSE, `format=compact`) | Streams grounded RAG answer with source citations (`doc_type`, `rights_tier`) and interactive `Helpful` / `Needs work` feedback buttons |
 | `/media-clearance <prompt>` | `POST /v1/agent/run` (`202 Accepted`) | Runs the multi-agent clearance workflow and posts an interactive Block Kit approval card (`Approve & Publish` / `Reject Draft`) |
-| `@media-ops <message>` | `/v1/chat/stream` or `/v1/agent/run` | Replies in-thread (`thread_ts`), routing clearance summary requests to the human approval workflow and factual questions to RAG |
+| `@media-ops <message>` (channel) or **DM** to the bot | `/v1/chat/stream` or `/v1/agent/run` | Replies in-thread or in the DM; clearance-style prompts go to the agent workflow, other text to RAG |
 | Block Kit `Approve` / `Reject` | `POST /v1/agent/run` (`resume`) | Resolves the pending `thread_id` in SQLite (`localhost`) or PostgreSQL (`stage`/`production`) and updates the Slack card in place |
 | Block Kit `Helpful` / `Needs work` | `POST /v1/feedback` | Persists thumbs feedback correlated with `X-Session-Id` and `prompt_version` |
 | `/media-status` | `GET /health` | Displays live BFF health, `environment`, `state_store`, `pgvector` chunk count, and active LLM provider |

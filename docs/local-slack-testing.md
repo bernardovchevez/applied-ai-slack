@@ -213,7 +213,7 @@ Invite the bot to a test channel first: `/invite @media-ops` (or the display nam
 
 ### Direct messages
 
-The manifest subscribes to `message.im`, but the current Bolt handlers only register `app_mention`. **DMs will not get bot replies until a `message` / `message.im` handler is added.** Use slash commands and `@media-ops` in a channel for local testing.
+With **App Home → Messages tab** enabled (see setup step 6), you can DM `@media-ops` plain text (no `@` required). The bot uses the same RAG vs clearance routing as channel `@media-ops` mentions. Slash commands work in DMs as well.
 
 ---
 
@@ -245,3 +245,4 @@ See [README.md](../README.md) for stage and production env templates and Docker.
 - [applied-ai-platform/platform/bff/README.md](../../applied-ai-platform/platform/bff/README.md): BFF endpoints, agent `202` / `resume` flow, localhost SQLite state
 - [applied-ai-platform/README.md](../../applied-ai-platform/README.md): corpus ingest, pgvector, Ollama, and evals
 - [applied-ai-web/README.md](../../applied-ai-web/README.md): Next.js client and equivalent web demo prompts
+- [applied-ai-platform/docs/rag-backend-comparison.md](../../applied-ai-platform/docs/rag-backend-comparison.md): RAG backend keyword benchmarks and MLflow runbook
