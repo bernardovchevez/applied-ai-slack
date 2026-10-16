@@ -23,6 +23,10 @@ workspace/
 | Block Kit `Helpful` / `Needs work` | `POST /v1/feedback` | Persists thumbs feedback correlated with `X-Session-Id` and `prompt_version` |
 | `/media-status` | `GET /health` | Displays live BFF health, `environment`, `state_store`, `pgvector` chunk count, and active LLM provider |
 
+## Local Slack testing
+
+Step-by-step guide (unit tests, BFF smoke, Socket Mode, manual checklist, troubleshooting): **[docs/local-slack-testing.md](docs/local-slack-testing.md)**.
+
 ## Quick Start (Localhost with Socket Mode)
 
 In `localhost`, `applied-ai-slack` uses **Slack Socket Mode** so no public webhook URL or `ngrok` tunnel is required:

@@ -3,6 +3,11 @@ display_information:
   description: Grounded RAG Q&A and multi-agent rights clearance workflows for media operations
   background_color: "#0f172a"
 features:
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    # Required or Slack shows "Sending messages to this app has been turned off" in the bot DM.
+    messages_tab_read_only_enabled: false
   bot_user:
     display_name: media-ops
     always_online: true
