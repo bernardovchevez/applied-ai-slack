@@ -19,6 +19,7 @@ import {
   encodeFeedbackValue,
   toSlackMrkdwn,
 } from "../src/blocks";
+import { buildMediaHelpBlocks, DOCS_LOCAL_TESTING_URL } from "../src/help";
 import { workingMessageText } from "../src/progress";
 import {
   isClearancePrompt,
@@ -99,6 +100,20 @@ describe("SSE Framing & Stream Parsing", () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+});
+
+describe("/media-help", () => {
+  it("builds help blocks with commands and doc links", () => {
+    const blocks = buildMediaHelpBlocks();
+    assert.ok(blocks.length >= 5);
+    assert.equal(blocks[0].type, "header");
+    const body = JSON.stringify(blocks);
+    assert.match(body, /\/media-ask/);
+    assert.match(body, /\/media-clearance/);
+    assert.match(body, /\/media-status/);
+    assert.match(body, /\/media-help/);
+    assert.ok(body.includes(DOCS_LOCAL_TESTING_URL));
   });
 });
 

@@ -15,6 +15,7 @@ import {
   buildRagAnswerBlocks,
   decodeFeedbackValue,
 } from "./blocks";
+import { buildMediaHelpBlocks } from "./help";
 import { workingMessageText } from "./progress";
 import {
   dispatchMediaOpsQuery,
@@ -103,7 +104,17 @@ export function registerSlackHandlers(app: App): void {
     }
   });
 
-  // 3. /media-status -> BFF health, environment, and pgvector index check
+  // 3. /media-help -> Commands, samples, and documentation links
+  app.command("/media-help", async ({ ack, respond }) => {
+    await ack();
+    await respond({
+      response_type: "ephemeral",
+      text: "Media Ops AI Assistant: use /media-ask, /media-clearance, /media-status, @media-ops, or DM the bot.",
+      blocks: buildMediaHelpBlocks(),
+    });
+  });
+
+  // 4. /media-status -> BFF health, environment, and pgvector index check
   app.command("/media-status", async ({ ack, respond }) => {
     await ack();
     try {
@@ -122,7 +133,7 @@ export function registerSlackHandlers(app: App): void {
     }
   });
 
-  // 4. @media-ops mention in channels -> routes to clearance agent or RAG Q&A in thread
+  // 5. @media-ops mention in channels -> routes to clearance agent or RAG Q&A in thread
   app.event("app_mention", async ({ event, client }) => {
     const cleaned = stripLeadingBotMention(event.text ?? "");
     const threadTs = event.thread_ts ?? event.ts;
@@ -136,7 +147,7 @@ export function registerSlackHandlers(app: App): void {
     });
   });
 
-  // 5. Direct messages (message.im) -> same routing as @media-ops without a mention
+  // 6. Direct messages (message.im) -> same routing as @media-ops without a mention
   app.event("message", async ({ event, client }) => {
     if (event.subtype && event.subtype !== "file_share") return;
     if (!isDirectMessage(event)) return;
@@ -153,7 +164,7 @@ export function registerSlackHandlers(app: App): void {
     });
   });
 
-  // 6. Interactive Block Kit button: Approve & Publish / Reject Draft
+  // 7. Interactive Block Kit button: Approve & Publish / Reject Draft
   const handleAgentDecision = (decision: "approve" | "reject") =>
     async ({ ack, body, action, respond }: {
       ack: () => Promise<void>;
@@ -187,7 +198,7 @@ export function registerSlackHandlers(app: App): void {
   app.action<BlockAction<ButtonAction>>("agent_approve", handleAgentDecision("approve"));
   app.action<BlockAction<ButtonAction>>("agent_reject", handleAgentDecision("reject"));
 
-  // 7. Interactive Block Kit button: Helpful / Needs work feedback
+  // 8. Interactive Block Kit button: Helpful / Needs work feedback
   const handleFeedback = (rating: "up" | "down") =>
     async ({ ack, action, respond }: {
       ack: () => Promise<void>;

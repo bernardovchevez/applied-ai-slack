@@ -122,10 +122,13 @@ Prompts below match the synthetic **Harbor Line** corpus in `applied-ai-platform
 
 ### Suggested demo flow (about 2 minutes)
 
-1. `/media-status`
-2. `/media-ask Is the theme song cleared for EMEA streaming?`
-3. `/media-clearance Prepare clearance summary for Harbor Line S01E04 EMEA launch`
-4. Click **Approve & Publish** or **Reject Draft** on the clearance card
+1. `/media-help` (command list and doc links)
+2. `/media-status`
+3. `/media-ask Is the theme song cleared for EMEA streaming?`
+4. `/media-clearance Prepare clearance summary for Harbor Line S01E04 EMEA launch`
+5. Click **Approve & Publish** or **Reject Draft** on the clearance card
+
+After updating `slack-app-manifest.yaml`, re-import the manifest or add `/media-help` under **Slash Commands** in the Slack app settings, then reinstall to the workspace if Slack prompts you.
 
 ### `/media-ask` (grounded RAG)
 

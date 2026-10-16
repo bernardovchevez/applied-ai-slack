@@ -23,6 +23,9 @@ features:
     - command: /media-status
       description: Check Applied AI Platform BFF health, environment, and index status
       should_escape: false
+    - command: /media-help
+      description: List commands, sample prompts, and links to local testing documentation
+      should_escape: false
 oauth_config:
   scopes:
     bot:

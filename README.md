@@ -22,6 +22,7 @@ workspace/
 | Block Kit `Approve` / `Reject` | `POST /v1/agent/run` (`resume`) | Resolves the pending `thread_id` in SQLite (`localhost`) or PostgreSQL (`stage`/`production`) and updates the Slack card in place |
 | Block Kit `Helpful` / `Needs work` | `POST /v1/feedback` | Persists thumbs feedback correlated with `X-Session-Id` and `prompt_version` |
 | `/media-status` | `GET /health` | Displays live BFF health, `environment`, `state_store`, `pgvector` chunk count, and active LLM provider |
+| `/media-help` | (none) | Ephemeral onboarding card: commands, sample prompts, links to `docs/local-slack-testing.md` |
 
 ## Companion repositories
 
