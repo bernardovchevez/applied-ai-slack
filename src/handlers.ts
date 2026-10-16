@@ -15,6 +15,7 @@ import {
   buildRagAnswerBlocks,
   decodeFeedbackValue,
 } from "./blocks";
+import { workingMessageText } from "./progress";
 import {
   dispatchMediaOpsQuery,
   isDirectMessage,
@@ -42,7 +43,7 @@ export function registerSlackHandlers(app: App): void {
     const sessionId = `slack-${command.channel_id}-${command.user_id}-${Date.now()}`;
     await respond({
       response_type: "in_channel",
-      text: `Searching media operations corpus for: _"${question}"_...`,
+      text: workingMessageText(question, false),
     });
 
     try {
@@ -72,7 +73,7 @@ export function registerSlackHandlers(app: App): void {
 
     await respond({
       response_type: "in_channel",
-      text: `Running multi-agent clearance workflow for: _"${prompt}"_...`,
+      text: workingMessageText(prompt, true),
     });
 
     try {
@@ -122,20 +123,21 @@ export function registerSlackHandlers(app: App): void {
   });
 
   // 4. @media-ops mention in channels -> routes to clearance agent or RAG Q&A in thread
-  app.event("app_mention", async ({ event, say }) => {
+  app.event("app_mention", async ({ event, client }) => {
     const cleaned = stripLeadingBotMention(event.text ?? "");
     const threadTs = event.thread_ts ?? event.ts;
     const sessionId = slackThreadSessionId(event.channel, threadTs);
     await dispatchMediaOpsQuery({
       prompt: cleaned,
       sessionId,
+      channel: event.channel,
       threadTs,
-      say,
+      client,
     });
   });
 
   // 5. Direct messages (message.im) -> same routing as @media-ops without a mention
-  app.event("message", async ({ event, say }) => {
+  app.event("message", async ({ event, client }) => {
     if (event.subtype && event.subtype !== "file_share") return;
     if (!isDirectMessage(event)) return;
     if (!isUserTextMessage(event)) return;
@@ -145,8 +147,9 @@ export function registerSlackHandlers(app: App): void {
     await dispatchMediaOpsQuery({
       prompt: (event.text ?? "").trim(),
       sessionId,
+      channel: event.channel,
       threadTs,
-      say,
+      client,
     });
   });
 

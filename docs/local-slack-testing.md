@@ -215,6 +215,8 @@ Invite the bot to a test channel first: `/invite @media-ops` (or the display nam
 
 With **App Home → Messages tab** enabled (see setup step 6), you can DM `@media-ops` plain text (no `@` required). The bot uses the same RAG vs clearance routing as channel `@media-ops` mentions. Slash commands work in DMs as well.
 
+For `/media-ask`, `/media-clearance`, `@media-ops`, and DMs, you should see a **Working on it…** message immediately; the same message updates in place when the BFF returns (mentions/DMs via `chat.update`, slash commands via `replace_original`).
+
 ---
 
 ## Troubleshooting

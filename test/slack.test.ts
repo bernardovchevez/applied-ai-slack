@@ -19,6 +19,7 @@ import {
   encodeFeedbackValue,
   toSlackMrkdwn,
 } from "../src/blocks";
+import { workingMessageText } from "../src/progress";
 import {
   isClearancePrompt,
   isDirectMessage,
@@ -118,6 +119,16 @@ describe("Media ops routing (mentions + DMs)", () => {
     assert.equal(isUserTextMessage({ text: "hello" }), true);
     assert.equal(isUserTextMessage({ text: "hello", bot_id: "B1" }), false);
     assert.equal(isUserTextMessage({ text: "x", subtype: "message_changed" }), false);
+  });
+
+  it("builds working-on-it placeholder copy for RAG and clearance", () => {
+    assert.match(workingMessageText("Is EMEA cleared?", false), /Working on it/i);
+    assert.match(workingMessageText("Is EMEA cleared?", false), /Is EMEA cleared/);
+    assert.match(
+      workingMessageText("Prepare clearance summary for Harbor Line", true),
+      /clearance workflow/i,
+    );
+    assert.match(workingMessageText("Prepare clearance summary for Harbor Line"), /minute on localhost/);
   });
 });
 

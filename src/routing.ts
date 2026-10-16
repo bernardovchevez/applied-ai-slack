@@ -1,9 +1,11 @@
+import type { WebClient } from "@slack/web-api";
 import { askRag, isAgentPaused, runAgent } from "./bff";
 import {
   buildAgentPausedBlocks,
   buildAgentResolvedBlocks,
   buildRagAnswerBlocks,
 } from "./blocks";
+import { postWorkingPlaceholder, updateChatMessage } from "./progress";
 
 export const CLEARANCE_INTENT_RE =
   /\b(clearance summary|production brief|draft brief|launch summary|prepare.*clearance)\b/i;
@@ -25,47 +27,48 @@ export function slackThreadSessionId(channelId: string, threadTs: string): strin
   return `slack-thread-${channelId}-${threadTs}`;
 }
 
-export type MediaOpsSayPayload = {
-  thread_ts?: string;
-  text: string;
-  blocks?: ReturnType<typeof buildRagAnswerBlocks>;
-};
-
-export type MediaOpsSay = (payload: MediaOpsSayPayload) => Promise<unknown>;
-
 /**
  * Route a user prompt to clearance agent or RAG Q&A (shared by @mentions and DMs).
+ * Posts a "Working on it…" placeholder, then updates the same message when the BFF returns.
  */
 export async function dispatchMediaOpsQuery(input: {
   prompt: string;
   sessionId: string;
+  channel: string;
   threadTs?: string;
-  say: MediaOpsSay;
+  client: WebClient;
 }): Promise<void> {
-  const threadOpts = input.threadTs ? { thread_ts: input.threadTs } : {};
+  const threadTs = input.threadTs;
 
   if (!input.prompt.trim()) {
-    await input.say({
-      ...threadOpts,
+    await input.client.chat.postMessage({
+      channel: input.channel,
+      thread_ts: threadTs,
       text: MEDIA_OPS_EMPTY_PROMPT_HELP,
     });
     return;
   }
 
   const prompt = input.prompt.trim();
+  let placeholder: { channel: string; ts: string } | undefined;
 
   try {
+    placeholder = await postWorkingPlaceholder(
+      input.client,
+      input.channel,
+      threadTs,
+      prompt,
+    );
+
     if (isClearancePrompt(prompt)) {
       const res = await runAgent({ prompt, sessionId: input.sessionId, autoApprove: false });
       if (isAgentPaused(res)) {
-        await input.say({
-          ...threadOpts,
+        await updateChatMessage(input.client, placeholder.channel, placeholder.ts, {
           text: `Clearance workflow awaiting approval (${res.thread_id})`,
           blocks: buildAgentPausedBlocks(res),
         });
       } else {
-        await input.say({
-          ...threadOpts,
+        await updateChatMessage(input.client, placeholder.channel, placeholder.ts, {
           text: res.answer,
           blocks: buildAgentResolvedBlocks(res, {
             threadId: input.sessionId,
@@ -75,18 +78,25 @@ export async function dispatchMediaOpsQuery(input: {
       }
     } else {
       const rag = await askRag(prompt, input.sessionId);
-      await input.say({
-        ...threadOpts,
+      await updateChatMessage(input.client, placeholder.channel, placeholder.ts, {
         text: rag.answer,
         blocks: buildRagAnswerBlocks(rag),
       });
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "BFF request failed";
-    await input.say({
-      ...threadOpts,
-      text: `Error communicating with Applied AI Platform BFF: ${msg}`,
-    });
+    const errorText = `Error communicating with Applied AI Platform BFF: ${msg}`;
+    if (placeholder) {
+      await updateChatMessage(input.client, placeholder.channel, placeholder.ts, {
+        text: errorText,
+      });
+    } else {
+      await input.client.chat.postMessage({
+        channel: input.channel,
+        thread_ts: threadTs,
+        text: errorText,
+      });
+    }
   }
 }
 
