@@ -44,12 +44,16 @@ export async function updateChatMessage(
   ts: string,
   payload: { text: string; blocks?: KnownBlock[] },
 ): Promise<void> {
-  const res = await client.chat.update({
+  // Slack keeps previous blocks when `blocks` is omitted; pass [] to remove Block Kit (e.g. Retry).
+  const updatePayload: { channel: string; ts: string; text: string; blocks?: KnownBlock[] } = {
     channel,
     ts,
     text: payload.text,
-    blocks: payload.blocks,
-  });
+  };
+  if (payload.blocks !== undefined) {
+    updatePayload.blocks = payload.blocks;
+  }
+  const res = await client.chat.update(updatePayload);
   if (!res.ok) {
     throw new Error(res.error ?? "chat.update failed");
   }

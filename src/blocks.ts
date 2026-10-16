@@ -5,6 +5,7 @@ import type {
   FeedbackButtonMeta,
   HealthReport,
   RagAnswerResult,
+  RetryButtonMeta,
   SourceCitation,
 } from "./types";
 
@@ -42,6 +43,75 @@ export function decodeFeedbackValue(raw: string): FeedbackButtonMeta {
     prompt: parsed.prompt ?? "Slack query",
     responseSnippet: parsed.responseSnippet ?? "Slack response",
   };
+}
+
+export function encodeRetryValue(meta: RetryButtonMeta): string {
+  return JSON.stringify({
+    prompt: meta.prompt.slice(0, 400),
+    channel: meta.channel.slice(0, 32),
+    threadRootTs: meta.threadRootTs.slice(0, 32),
+    route: meta.route,
+  });
+}
+
+export function decodeRetryValue(raw: string): RetryButtonMeta {
+  const parsed = JSON.parse(raw) as Partial<RetryButtonMeta>;
+  return {
+    prompt: parsed.prompt ?? "",
+    channel: parsed.channel ?? "",
+    threadRootTs: parsed.threadRootTs ?? "",
+    route: parsed.route ?? "auto",
+  };
+}
+
+/** Block Kit card when the BFF or SSE stream fails; includes a **Retry** button. */
+export function buildBffErrorBlocks(
+  errorMessage: string,
+  retry: RetryButtonMeta,
+  bffUrl: string,
+): KnownBlock[] {
+  const promptLine = retry.prompt
+    ? `*Request:* ${toSlackMrkdwn(retry.prompt, 320)}`
+    : "_No prompt recorded._";
+
+  return [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: "Applied AI Platform request failed",
+        emoji: true,
+      },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `:warning: ${toSlackMrkdwn(errorMessage, 600)}\n\n${promptLine}`,
+      },
+    },
+    {
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `BFF: \`${bffUrl}\` · Session thread: \`${retry.threadRootTs}\``,
+        },
+      ],
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          action_id: "bff_retry",
+          style: "primary",
+          text: { type: "plain_text", text: "Retry", emoji: true },
+          value: encodeRetryValue(retry),
+        },
+      ],
+    },
+  ];
 }
 
 /**

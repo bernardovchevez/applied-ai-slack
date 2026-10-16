@@ -1,11 +1,14 @@
+import type { KnownBlock } from "@slack/types";
 import type { WebClient } from "@slack/web-api";
-import { askRag, isAgentPaused, runAgent } from "./bff";
+import { askRag, getBffUrl, isAgentPaused, runAgent } from "./bff";
 import {
   buildAgentPausedBlocks,
   buildAgentResolvedBlocks,
+  buildBffErrorBlocks,
   buildRagAnswerBlocks,
 } from "./blocks";
-import { postWorkingPlaceholder, updateChatMessage } from "./progress";
+import { postWorkingPlaceholder, updateChatMessage, workingMessageText } from "./progress";
+import type { RetryButtonMeta } from "./types";
 
 export const CLEARANCE_INTENT_RE =
   /\b(clearance summary|production brief|draft brief|launch summary|prepare.*clearance)\b/i;
@@ -34,6 +37,81 @@ export function slackThreadRootTs(existingThreadTs: string | undefined, anchorMe
 
 type MediaOpsRoute = "auto" | "rag" | "clearance";
 
+function retryMeta(input: {
+  prompt: string;
+  channel: string;
+  threadRootTs: string;
+  route: MediaOpsRoute;
+}): RetryButtonMeta {
+  return {
+    prompt: input.prompt,
+    channel: input.channel,
+    threadRootTs: input.threadRootTs,
+    route: input.route,
+  };
+}
+
+async function fulfillThreadScopedQuery(input: {
+  prompt: string;
+  channel: string;
+  threadRootTs: string;
+  route: MediaOpsRoute;
+}): Promise<{ text: string; blocks: KnownBlock[] }> {
+  const prompt = input.prompt.trim();
+  const sessionId = slackThreadSessionId(input.channel, input.threadRootTs);
+  const useClearance =
+    input.route === "clearance" ||
+    (input.route === "auto" && isClearancePrompt(prompt));
+
+  if (useClearance) {
+    const res = await runAgent({ prompt, sessionId, autoApprove: false });
+    if (isAgentPaused(res)) {
+      return {
+        text: `Clearance workflow awaiting approval (${res.thread_id})`,
+        blocks: buildAgentPausedBlocks(res),
+      };
+    }
+    return {
+      text: res.answer,
+      blocks: buildAgentResolvedBlocks(res, {
+        threadId: sessionId,
+        prompt,
+      }),
+    };
+  }
+
+  const rag = await askRag(prompt, sessionId);
+  return {
+    text: rag.answer,
+    blocks: buildRagAnswerBlocks(rag),
+  };
+}
+
+async function postBffErrorMessage(input: {
+  client: WebClient;
+  channel: string;
+  messageTs?: string;
+  threadTs?: string;
+  errorMessage: string;
+  retry: RetryButtonMeta;
+}): Promise<void> {
+  const bffUrl = getBffUrl();
+  const text = `Applied AI Platform request failed: ${input.errorMessage}`;
+  const blocks = buildBffErrorBlocks(input.errorMessage, input.retry, bffUrl);
+
+  if (input.messageTs) {
+    await updateChatMessage(input.client, input.channel, input.messageTs, { text, blocks });
+    return;
+  }
+
+  await input.client.chat.postMessage({
+    channel: input.channel,
+    thread_ts: input.threadTs,
+    text,
+    blocks,
+  });
+}
+
 async function dispatchThreadScopedQuery(input: {
   prompt: string;
   channel: string;
@@ -44,6 +122,7 @@ async function dispatchThreadScopedQuery(input: {
 }): Promise<void> {
   const prompt = input.prompt.trim();
   let placeholder: { channel: string; ts: string } | undefined;
+  let threadRootTs: string | undefined;
 
   try {
     placeholder = await postWorkingPlaceholder(
@@ -52,49 +131,87 @@ async function dispatchThreadScopedQuery(input: {
       input.threadTs,
       prompt,
     );
-    const rootTs = slackThreadRootTs(input.threadTs, placeholder.ts);
-    const sessionId = slackThreadSessionId(input.channel, rootTs);
-    const useClearance =
-      input.route === "clearance" ||
-      (input.route === "auto" && isClearancePrompt(prompt));
-
-    if (useClearance) {
-      const res = await runAgent({ prompt, sessionId, autoApprove: false });
-      if (isAgentPaused(res)) {
-        await updateChatMessage(input.client, placeholder.channel, placeholder.ts, {
-          text: `Clearance workflow awaiting approval (${res.thread_id})`,
-          blocks: buildAgentPausedBlocks(res),
-        });
-      } else {
-        await updateChatMessage(input.client, placeholder.channel, placeholder.ts, {
-          text: res.answer,
-          blocks: buildAgentResolvedBlocks(res, {
-            threadId: sessionId,
-            prompt,
-          }),
-        });
-      }
-    } else {
-      const rag = await askRag(prompt, sessionId);
-      await updateChatMessage(input.client, placeholder.channel, placeholder.ts, {
-        text: rag.answer,
-        blocks: buildRagAnswerBlocks(rag),
-      });
-    }
+    threadRootTs = slackThreadRootTs(input.threadTs, placeholder.ts);
+    const result = await fulfillThreadScopedQuery({
+      prompt,
+      channel: input.channel,
+      threadRootTs,
+      route: input.route,
+    });
+    await updateChatMessage(input.client, placeholder.channel, placeholder.ts, result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "BFF request failed";
-    const errorText = `Error communicating with Applied AI Platform BFF: ${msg}`;
-    if (placeholder) {
-      await updateChatMessage(input.client, placeholder.channel, placeholder.ts, {
-        text: errorText,
-      });
-    } else {
+    const rootTs =
+      threadRootTs ??
+      (placeholder ? slackThreadRootTs(input.threadTs, placeholder.ts) : input.threadTs);
+    if (!rootTs) {
       await input.client.chat.postMessage({
         channel: input.channel,
         thread_ts: input.threadTs,
-        text: errorText,
+        text: `Error communicating with Applied AI Platform BFF: ${msg}`,
       });
+      return;
     }
+    await postBffErrorMessage({
+      client: input.client,
+      channel: placeholder?.channel ?? input.channel,
+      messageTs: placeholder?.ts,
+      threadTs: input.threadTs,
+      errorMessage: msg,
+      retry: retryMeta({
+        prompt,
+        channel: input.channel,
+        threadRootTs: rootTs,
+        route: input.route,
+      }),
+    });
+  }
+}
+
+/**
+ * Re-run a failed RAG or agent request from the Block Kit **Retry** button (updates the same message).
+ */
+export async function retryThreadScopedQuery(input: {
+  client: WebClient;
+  channel: string;
+  messageTs: string;
+  meta: RetryButtonMeta;
+}): Promise<void> {
+  const prompt = input.meta.prompt.trim();
+  if (!prompt || !input.meta.threadRootTs) {
+    throw new Error("Retry payload is missing prompt or thread session");
+  }
+
+  const clearance =
+    input.meta.route === "clearance" ||
+    (input.meta.route === "auto" && isClearancePrompt(prompt));
+
+  await updateChatMessage(input.client, input.channel, input.messageTs, {
+    text: workingMessageText(prompt, clearance),
+    blocks: [],
+  });
+
+  try {
+    const result = await fulfillThreadScopedQuery({
+      prompt,
+      channel: input.meta.channel || input.channel,
+      threadRootTs: input.meta.threadRootTs,
+      route: input.meta.route,
+    });
+    await updateChatMessage(input.client, input.channel, input.messageTs, result);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "BFF request failed";
+    await postBffErrorMessage({
+      client: input.client,
+      channel: input.channel,
+      messageTs: input.messageTs,
+      errorMessage: msg,
+      retry: {
+        ...input.meta,
+        channel: input.meta.channel || input.channel,
+        prompt,
+      },
+    });
   }
 }
 

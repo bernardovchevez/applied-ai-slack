@@ -223,6 +223,8 @@ For `/media-ask`, `/media-clearance`, `@media-ops`, and DMs, you should see a **
 
 **Thread session continuity:** All of those surfaces send the same `X-Session-Id` for a Slack thread: `slack-thread-<channel>-<thread_root_ts>`. Run `/media-ask` in a thread (or reply in-thread with `@media-ops`) and follow-up questions in that thread reuse BFF chat history. A new top-level slash command starts a new session keyed to that answer message’s timestamp.
 
+**BFF errors:** If the BFF is down or the stream fails, the bot replaces the **Working on it…** message with an error card and a **Retry** button (same prompt and thread session). Stop the BFF, run `/media-ask`, then restart the BFF and click **Retry** once to confirm. Extra clicks while a retry is running are ignored (ephemeral notice); the error card clears its buttons as soon as a retry starts.
+
 ---
 
 ## Troubleshooting

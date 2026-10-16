@@ -72,3 +72,11 @@ export interface FeedbackButtonMeta {
   prompt: string;
   responseSnippet: string;
 }
+
+/** Payload for Block Kit **Retry** after a failed RAG or agent call. */
+export interface RetryButtonMeta {
+  prompt: string;
+  channel: string;
+  threadRootTs: string;
+  route: "rag" | "clearance" | "auto";
+}

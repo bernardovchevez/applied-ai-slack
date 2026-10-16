@@ -9,13 +9,16 @@ import {
   buildAgentResolvedBlocks,
   buildHealthBlocks,
   decodeFeedbackValue,
+  decodeRetryValue,
 } from "./blocks";
 import { buildMediaHelpBlocks } from "./help";
+import { releaseRetry, retryGuardKey, tryAcquireRetry } from "./retry-guard";
 import {
   dispatchMediaOpsQuery,
   dispatchSlashQuery,
   isDirectMessage,
   isUserTextMessage,
+  retryThreadScopedQuery,
   stripLeadingBotMention,
 } from "./routing";
 
@@ -185,4 +188,45 @@ export function registerSlackHandlers(app: App): void {
 
   app.action<BlockAction<ButtonAction>>("feedback_up", handleFeedback("up"));
   app.action<BlockAction<ButtonAction>>("feedback_down", handleFeedback("down"));
+
+  // 9. Retry after BFF / SSE failure on RAG or clearance requests
+  app.action<BlockAction<ButtonAction>>("bff_retry", async ({ ack, action, body, client, respond }) => {
+    await ack();
+    const channel = body.channel?.id;
+    const messageTs = body.message?.ts;
+    if (!channel || !messageTs) {
+      await respond({
+        response_type: "ephemeral",
+        text: "Could not retry: missing channel or message context.",
+      });
+      return;
+    }
+
+    const guardKey = retryGuardKey(channel, messageTs);
+    if (!tryAcquireRetry(guardKey)) {
+      await respond({
+        response_type: "ephemeral",
+        text: "A retry is already running for this message. Wait for it to finish.",
+      });
+      return;
+    }
+
+    try {
+      const meta = decodeRetryValue(action.value ?? "{}");
+      await retryThreadScopedQuery({
+        client,
+        channel,
+        messageTs,
+        meta,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Retry failed";
+      await respond({
+        response_type: "ephemeral",
+        text: `Retry could not start: ${msg}`,
+      });
+    } finally {
+      releaseRetry(guardKey);
+    }
+  });
 }

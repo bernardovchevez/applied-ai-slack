@@ -15,11 +15,15 @@ import {
   buildAgentResolvedBlocks,
   buildHealthBlocks,
   buildRagAnswerBlocks,
+  buildBffErrorBlocks,
   decodeFeedbackValue,
+  decodeRetryValue,
   encodeFeedbackValue,
+  encodeRetryValue,
   toSlackMrkdwn,
 } from "../src/blocks";
 import { buildMediaHelpBlocks, DOCS_LOCAL_TESTING_URL } from "../src/help";
+import { releaseRetry, retryGuardKey, tryAcquireRetry } from "../src/retry-guard";
 import { workingMessageText } from "../src/progress";
 import {
   isClearancePrompt,
@@ -137,6 +141,31 @@ describe("Media ops routing (mentions + DMs)", () => {
     assert.equal(isUserTextMessage({ text: "hello" }), true);
     assert.equal(isUserTextMessage({ text: "hello", bot_id: "B1" }), false);
     assert.equal(isUserTextMessage({ text: "x", subtype: "message_changed" }), false);
+  });
+
+  it("allows only one in-flight retry per Slack message", () => {
+    const key = retryGuardKey("C1", "1234.5678");
+    assert.equal(tryAcquireRetry(key), true);
+    assert.equal(tryAcquireRetry(key), false);
+    releaseRetry(key);
+    assert.equal(tryAcquireRetry(key), true);
+    releaseRetry(key);
+  });
+
+  it("builds BFF error blocks with retry payload", () => {
+    const retry = {
+      prompt: "Is EMEA cleared?",
+      channel: "C123",
+      threadRootTs: "1234.5678",
+      route: "rag" as const,
+    };
+    const encoded = encodeRetryValue(retry);
+    assert.equal(decodeRetryValue(encoded).prompt, "Is EMEA cleared?");
+    const blocks = buildBffErrorBlocks("Connection refused", retry, "http://localhost:8000");
+    assert.equal(blocks[0].type, "header");
+    assert.equal(blocks[blocks.length - 1].type, "actions");
+    const actions = blocks[blocks.length - 1] as { elements: { action_id: string }[] };
+    assert.equal(actions.elements[0].action_id, "bff_retry");
   });
 
   it("builds working-on-it placeholder copy for RAG and clearance", () => {

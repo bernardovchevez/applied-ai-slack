@@ -24,7 +24,7 @@ workspace/
 | `/media-status` | `GET /health` | Displays live BFF health, `environment`, `state_store`, `pgvector` chunk count, and active LLM provider |
 | `/media-help` | (none) | Ephemeral onboarding card: commands, sample prompts, links to `docs/local-slack-testing.md` |
 
-RAG and agent calls share a thread-scoped BFF session id (`slack-thread-<channel>-<thread_root_ts>`) for slash commands, `@media-ops`, and DMs so follow-ups in the same Slack thread keep chat context.
+RAG and agent calls share a thread-scoped BFF session id (`slack-thread-<channel>-<thread_root_ts>`) for slash commands, `@media-ops`, and DMs so follow-ups in the same Slack thread keep chat context. BFF failures surface a Block Kit error card with **Retry** (updates the same message in place).
 
 ## Companion repositories
 
