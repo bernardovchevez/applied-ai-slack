@@ -23,9 +23,21 @@ workspace/
 | Block Kit `Helpful` / `Needs work` | `POST /v1/feedback` | Persists thumbs feedback correlated with `X-Session-Id` and `prompt_version` |
 | `/media-status` | `GET /health` | Displays live BFF health, `environment`, `state_store`, `pgvector` chunk count, and active LLM provider |
 
+## Companion repositories
+
+| Repository | Role |
+|------------|------|
+| [applied-ai-platform](https://github.com/bernardovchevez/applied-ai-platform) | FastAPI BFF, RAG, LangGraph agents, pgvector, evals |
+| [applied-ai-web](https://github.com/bernardovchevez/applied-ai-web) | Next.js browser client (`X-Client-Platform: web`) |
+| [applied-ai-slack](https://github.com/bernardovchevez/applied-ai-slack) | This repo (`X-Client-Platform: slack`) |
+
+OpenAPI contract: [platform/bff/openapi.yaml](https://github.com/bernardovchevez/applied-ai-platform/blob/main/platform/bff/openapi.yaml).
+
 ## Local Slack testing
 
 Step-by-step guide (unit tests, BFF smoke, Socket Mode, manual checklist, troubleshooting): **[docs/local-slack-testing.md](docs/local-slack-testing.md)**.
+
+Copy-paste **sample prompts** for `/media-ask`, `/media-clearance`, and `@media-ops`: **[Sample prompts for localhost demos](docs/local-slack-testing.md#sample-prompts-for-localhost-demos)**.
 
 ## Quick Start (Localhost with Socket Mode)
 

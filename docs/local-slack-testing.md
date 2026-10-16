@@ -116,6 +116,87 @@ For TypeScript edits, run `npm run dev` in one terminal (watch compile) and rest
 
 ---
 
+## Sample prompts for localhost demos
+
+Prompts below match the synthetic **Harbor Line** corpus in `applied-ai-platform/data/synthetic/`. Use them in Slack or the same text on [applied-ai-web](https://github.com/bernardovchevez/applied-ai-web) chat and agent routes.
+
+### Suggested demo flow (about 2 minutes)
+
+1. `/media-status`
+2. `/media-ask Is the theme song cleared for EMEA streaming?`
+3. `/media-clearance Prepare clearance summary for Harbor Line S01E04 EMEA launch`
+4. Click **Approve & Publish** or **Reject Draft** on the clearance card
+
+### `/media-ask` (grounded RAG)
+
+Rights and clearance:
+
+```text
+/media-ask Is the theme song cleared for EMEA streaming?
+/media-ask Is the Harbor Line main title cleared for Japan streaming?
+/media-ask Is the Getty archival footage for Harbor Line Episode 4 cleared?
+/media-ask What product placement restrictions apply to Harbor Brew Co. in Episode 4?
+/media-ask Is the Harbor Line theme song cleared for streaming in China?
+```
+
+Production and operations:
+
+```text
+/media-ask What locations are locked for Season 1 Episode 4?
+/media-ask What location is locked for Harbor Line S01E07?
+/media-ask Which East River location was rejected during the 2026 location scout?
+/media-ask How many background talent releases are still outstanding for S01E04?
+/media-ask What safety conditions apply to the chain breakaway stunt in S01E06?
+```
+
+Distribution, press, and finance:
+
+```text
+/media-ask What territories are excluded from the distribution agreement?
+/media-ask When does Season 2 premiere?
+/media-ask Who is joining Harbor Line Season 2 as a series regular?
+/media-ask What is the total production budget for Harbor Line Season 2?
+/media-ask What deliverables can block international SVOD packaging for an episode?
+```
+
+Grounding checks (should cite corpus or refuse to invent):
+
+```text
+/media-ask Did Harbor Line Season 1 premiere on Netflix?
+/media-ask Who is the CEO of Netflix?
+```
+
+### `/media-clearance` (multi-agent workflow + approval card)
+
+```text
+/media-clearance Prepare clearance summary for Harbor Line S01E04 EMEA launch
+/media-clearance Draft production brief clearance summary for Harbor Line S02E01 EMEA SVOD
+/media-clearance Prepare launch summary for Harbor Line main title theme in EMEA streaming
+/media-clearance Draft brief for Harbor Line S01E04: music, Getty archival, and product placement for LATAM SVOD
+/media-clearance Prepare clearance summary for Harbor Line Season 2 premiere press and social (EMEA)
+```
+
+Empty command (uses built-in default prompt):
+
+```text
+/media-clearance
+```
+
+Default when text is omitted: *Prepare clearance summary for Harbor Line S01E04 EMEA launch*.
+
+### `@media-ops` in a channel (same routing, thread replies)
+
+Invite the bot first (`/invite @media-ops`), then:
+
+```text
+@media-ops Is the theme song cleared for EMEA streaming?
+@media-ops Prepare clearance summary for Harbor Line S01E04 EMEA launch
+```
+
+Clearance-style wording on `@media-ops` (for example “clearance summary”, “production brief”, “prepare … clearance”) routes to the agent workflow; other questions route to RAG like `/media-ask`.
+
+---
+
 ## Manual test checklist (Slack UI)
 
 Invite the bot to a test channel first: `/invite @media-ops` (or the display name from your manifest).
@@ -163,3 +244,4 @@ See [README.md](../README.md) for stage and production env templates and Docker.
 
 - [applied-ai-platform/platform/bff/README.md](../../applied-ai-platform/platform/bff/README.md): BFF endpoints, agent `202` / `resume` flow, localhost SQLite state
 - [applied-ai-platform/README.md](../../applied-ai-platform/README.md): corpus ingest, pgvector, Ollama, and evals
+- [applied-ai-web/README.md](../../applied-ai-web/README.md): Next.js client and equivalent web demo prompts
