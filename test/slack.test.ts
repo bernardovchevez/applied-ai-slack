@@ -25,6 +25,7 @@ import {
   isClearancePrompt,
   isDirectMessage,
   isUserTextMessage,
+  slackThreadRootTs,
   slackThreadSessionId,
   stripLeadingBotMention,
 } from "../src/routing";
@@ -126,6 +127,8 @@ describe("Media ops routing (mentions + DMs)", () => {
 
   it("builds stable thread session ids", () => {
     assert.equal(slackThreadSessionId("C123", "1234.5678"), "slack-thread-C123-1234.5678");
+    assert.equal(slackThreadRootTs("1111.0001", "2222.0002"), "1111.0001");
+    assert.equal(slackThreadRootTs(undefined, "2222.0002"), "2222.0002");
   });
 
   it("filters DM user text messages", () => {

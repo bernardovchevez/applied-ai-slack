@@ -207,7 +207,8 @@ Invite the bot to a test channel first: `/invite @media-ops` (or the display nam
 | Step | Slack action | Expected result |
 |------|----------------|-----------------|
 | 1 | `/media-status` | Ephemeral status card from `GET /health` |
-| 2 | `/media-ask Is the theme song cleared for EMEA streaming?` | In-channel answer with sources and **Helpful** / **Needs work** buttons |
+| 2 | `/media-ask Is the theme song cleared for EMEA streaming?` | In-channel answer (updates **Working on it…** in place) with sources and **Helpful** / **Needs work** buttons |
+| 2b | In the same thread: `@media-ops What about Japan?` | Thread reply; BFF session matches step 2 when the thread root is the `/media-ask` message |
 | 3 | Click **Helpful** or **Needs work** | Ephemeral confirmation; BFF records `POST /v1/feedback` |
 | 4 | `/media-clearance Prepare clearance summary for Harbor Line S01E04 EMEA launch` | In-channel card paused at human approval (`202`) with **Approve & Publish** / **Reject Draft** |
 | 5 | Click **Approve & Publish** or **Reject Draft** | Same message updates in place via `POST /v1/agent/run` with `resume` |
@@ -218,7 +219,9 @@ Invite the bot to a test channel first: `/invite @media-ops` (or the display nam
 
 With **App Home → Messages tab** enabled (see setup step 6), you can DM `@media-ops` plain text (no `@` required). The bot uses the same RAG vs clearance routing as channel `@media-ops` mentions. Slash commands work in DMs as well.
 
-For `/media-ask`, `/media-clearance`, `@media-ops`, and DMs, you should see a **Working on it…** message immediately; the same message updates in place when the BFF returns (mentions/DMs via `chat.update`, slash commands via `replace_original`).
+For `/media-ask`, `/media-clearance`, `@media-ops`, and DMs, you should see a **Working on it…** message immediately; the same message updates in place when the BFF returns (`chat.postMessage` + `chat.update`).
+
+**Thread session continuity:** All of those surfaces send the same `X-Session-Id` for a Slack thread: `slack-thread-<channel>-<thread_root_ts>`. Run `/media-ask` in a thread (or reply in-thread with `@media-ops`) and follow-up questions in that thread reuse BFF chat history. A new top-level slash command starts a new session keyed to that answer message’s timestamp.
 
 ---
 

@@ -27,28 +27,21 @@ export function slackThreadSessionId(channelId: string, threadTs: string): strin
   return `slack-thread-${channelId}-${threadTs}`;
 }
 
-/**
- * Route a user prompt to clearance agent or RAG Q&A (shared by @mentions and DMs).
- * Posts a "Working on it…" placeholder, then updates the same message when the BFF returns.
- */
-export async function dispatchMediaOpsQuery(input: {
+/** BFF session anchor: existing thread root, or the ts of a new root/placeholder message. */
+export function slackThreadRootTs(existingThreadTs: string | undefined, anchorMessageTs: string): string {
+  return existingThreadTs ?? anchorMessageTs;
+}
+
+type MediaOpsRoute = "auto" | "rag" | "clearance";
+
+async function dispatchThreadScopedQuery(input: {
   prompt: string;
-  sessionId: string;
   channel: string;
+  /** When set, post in this thread; when omitted, post a new channel message (its ts becomes the root). */
   threadTs?: string;
   client: WebClient;
+  route: MediaOpsRoute;
 }): Promise<void> {
-  const threadTs = input.threadTs;
-
-  if (!input.prompt.trim()) {
-    await input.client.chat.postMessage({
-      channel: input.channel,
-      thread_ts: threadTs,
-      text: MEDIA_OPS_EMPTY_PROMPT_HELP,
-    });
-    return;
-  }
-
   const prompt = input.prompt.trim();
   let placeholder: { channel: string; ts: string } | undefined;
 
@@ -56,12 +49,17 @@ export async function dispatchMediaOpsQuery(input: {
     placeholder = await postWorkingPlaceholder(
       input.client,
       input.channel,
-      threadTs,
+      input.threadTs,
       prompt,
     );
+    const rootTs = slackThreadRootTs(input.threadTs, placeholder.ts);
+    const sessionId = slackThreadSessionId(input.channel, rootTs);
+    const useClearance =
+      input.route === "clearance" ||
+      (input.route === "auto" && isClearancePrompt(prompt));
 
-    if (isClearancePrompt(prompt)) {
-      const res = await runAgent({ prompt, sessionId: input.sessionId, autoApprove: false });
+    if (useClearance) {
+      const res = await runAgent({ prompt, sessionId, autoApprove: false });
       if (isAgentPaused(res)) {
         await updateChatMessage(input.client, placeholder.channel, placeholder.ts, {
           text: `Clearance workflow awaiting approval (${res.thread_id})`,
@@ -71,13 +69,13 @@ export async function dispatchMediaOpsQuery(input: {
         await updateChatMessage(input.client, placeholder.channel, placeholder.ts, {
           text: res.answer,
           blocks: buildAgentResolvedBlocks(res, {
-            threadId: input.sessionId,
+            threadId: sessionId,
             prompt,
           }),
         });
       }
     } else {
-      const rag = await askRag(prompt, input.sessionId);
+      const rag = await askRag(prompt, sessionId);
       await updateChatMessage(input.client, placeholder.channel, placeholder.ts, {
         text: rag.answer,
         blocks: buildRagAnswerBlocks(rag),
@@ -93,11 +91,61 @@ export async function dispatchMediaOpsQuery(input: {
     } else {
       await input.client.chat.postMessage({
         channel: input.channel,
-        thread_ts: threadTs,
+        thread_ts: input.threadTs,
         text: errorText,
       });
     }
   }
+}
+
+/**
+ * Route a user prompt to clearance agent or RAG Q&A (shared by @mentions and DMs).
+ * Posts a "Working on it…" placeholder, then updates the same message when the BFF returns.
+ */
+export async function dispatchMediaOpsQuery(input: {
+  prompt: string;
+  channel: string;
+  threadTs?: string;
+  client: WebClient;
+}): Promise<void> {
+  const threadTs = input.threadTs;
+
+  if (!input.prompt.trim()) {
+    await input.client.chat.postMessage({
+      channel: input.channel,
+      thread_ts: threadTs,
+      text: MEDIA_OPS_EMPTY_PROMPT_HELP,
+    });
+    return;
+  }
+
+  await dispatchThreadScopedQuery({
+    prompt: input.prompt,
+    channel: input.channel,
+    threadTs,
+    client: input.client,
+    route: "auto",
+  });
+}
+
+/**
+ * `/media-ask` and `/media-clearance`: same thread-scoped BFF session as @media-ops and DMs.
+ * Uses `command.thread_ts` when the slash command is run inside a thread.
+ */
+export async function dispatchSlashQuery(input: {
+  prompt: string;
+  channel: string;
+  threadTs?: string;
+  client: WebClient;
+  route: "rag" | "clearance";
+}): Promise<void> {
+  await dispatchThreadScopedQuery({
+    prompt: input.prompt,
+    channel: input.channel,
+    threadTs: input.threadTs,
+    client: input.client,
+    route: input.route,
+  });
 }
 
 /** True for direct messages to the bot (message.im / App Home Messages tab). */

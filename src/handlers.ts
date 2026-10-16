@@ -1,27 +1,21 @@
 import type { App, BlockAction, ButtonAction } from "@slack/bolt";
 import {
-  askRag,
   fetchHealth,
   getBffUrl,
-  isAgentPaused,
   resumeAgent,
-  runAgent,
   submitFeedback,
 } from "./bff";
 import {
-  buildAgentPausedBlocks,
   buildAgentResolvedBlocks,
   buildHealthBlocks,
-  buildRagAnswerBlocks,
   decodeFeedbackValue,
 } from "./blocks";
 import { buildMediaHelpBlocks } from "./help";
-import { workingMessageText } from "./progress";
 import {
   dispatchMediaOpsQuery,
+  dispatchSlashQuery,
   isDirectMessage,
   isUserTextMessage,
-  slackThreadSessionId,
   stripLeadingBotMention,
 } from "./routing";
 
@@ -30,7 +24,7 @@ import {
  */
 export function registerSlackHandlers(app: App): void {
   // 1. /media-ask <question> -> Grounded RAG stream (compact format)
-  app.command("/media-ask", async ({ command, ack, respond }) => {
+  app.command("/media-ask", async ({ command, ack, respond, client }) => {
     await ack();
     const question = command.text.trim();
     if (!question) {
@@ -41,67 +35,28 @@ export function registerSlackHandlers(app: App): void {
       return;
     }
 
-    const sessionId = `slack-${command.channel_id}-${command.user_id}-${Date.now()}`;
-    await respond({
-      response_type: "in_channel",
-      text: workingMessageText(question, false),
+    await dispatchSlashQuery({
+      prompt: question,
+      channel: command.channel_id,
+      threadTs: command.thread_ts,
+      client,
+      route: "rag",
     });
-
-    try {
-      const result = await askRag(question, sessionId);
-      await respond({
-        response_type: "in_channel",
-        replace_original: true,
-        text: result.answer,
-        blocks: buildRagAnswerBlocks(result),
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to reach BFF";
-      await respond({
-        response_type: "ephemeral",
-        replace_original: true,
-        text: `Error querying Applied AI Platform BFF: ${msg}`,
-      });
-    }
   });
 
   // 2. /media-clearance <prompt> -> Multi-agent workflow + 202 human approval gate
-  app.command("/media-clearance", async ({ command, ack, respond }) => {
+  app.command("/media-clearance", async ({ command, ack, client }) => {
     await ack();
     const prompt =
       command.text.trim() || "Prepare clearance summary for Harbor Line S01E04 EMEA launch";
-    const sessionId = `slack-agent-${command.channel_id}-${Date.now()}`;
 
-    await respond({
-      response_type: "in_channel",
-      text: workingMessageText(prompt, true),
+    await dispatchSlashQuery({
+      prompt,
+      channel: command.channel_id,
+      threadTs: command.thread_ts,
+      client,
+      route: "clearance",
     });
-
-    try {
-      const res = await runAgent({ prompt, sessionId, autoApprove: false });
-      if (isAgentPaused(res)) {
-        await respond({
-          response_type: "in_channel",
-          replace_original: true,
-          text: `Clearance workflow paused for human approval (thread ${res.thread_id})`,
-          blocks: buildAgentPausedBlocks(res),
-        });
-      } else {
-        await respond({
-          response_type: "in_channel",
-          replace_original: true,
-          text: res.answer,
-          blocks: buildAgentResolvedBlocks(res, { threadId: sessionId, prompt }),
-        });
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Agent workflow failed";
-      await respond({
-        response_type: "ephemeral",
-        replace_original: true,
-        text: `Error running clearance agent: ${msg}`,
-      });
-    }
   });
 
   // 3. /media-help -> Commands, samples, and documentation links
@@ -137,10 +92,8 @@ export function registerSlackHandlers(app: App): void {
   app.event("app_mention", async ({ event, client }) => {
     const cleaned = stripLeadingBotMention(event.text ?? "");
     const threadTs = event.thread_ts ?? event.ts;
-    const sessionId = slackThreadSessionId(event.channel, threadTs);
     await dispatchMediaOpsQuery({
       prompt: cleaned,
-      sessionId,
       channel: event.channel,
       threadTs,
       client,
@@ -154,10 +107,8 @@ export function registerSlackHandlers(app: App): void {
     if (!isUserTextMessage(event)) return;
 
     const threadTs = event.thread_ts ?? event.ts;
-    const sessionId = slackThreadSessionId(event.channel, threadTs);
     await dispatchMediaOpsQuery({
       prompt: (event.text ?? "").trim(),
-      sessionId,
       channel: event.channel,
       threadTs,
       client,
