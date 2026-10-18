@@ -118,7 +118,7 @@ For TypeScript edits, run `npm run dev` in one terminal (watch compile) and rest
 
 ## Sample prompts for localhost demos
 
-Prompts below match the synthetic **Harbor Line** corpus in `applied-ai-platform/data/synthetic/`. Use them in Slack or the same text on [applied-ai-web](https://github.com/bernardovchevez/applied-ai-web) chat and agent routes.
+Prompts below match the synthetic **Harbor Line** corpus (seed in `applied-ai-docs/seed/harbor-line/`, indexed via publish). Use them in Slack or the same text on [applied-ai-web](https://github.com/bernardovchevez/applied-ai-web) chat and agent routes.
 
 ### Suggested demo flow (about 2 minutes)
 
