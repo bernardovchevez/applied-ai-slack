@@ -22,7 +22,7 @@ workspace/
 | Block Kit `Approve` / `Reject` | `POST /v1/agent/run` (`resume`) | Resolves the pending `thread_id` in SQLite (`localhost`) or PostgreSQL (`stage`/`production`) and updates the Slack card in place |
 | Block Kit `Helpful` / `Needs work` | `POST /v1/feedback` | Persists thumbs feedback correlated with `X-Session-Id` and `prompt_version` |
 | `/media-status` | `GET /health` | Displays live BFF health, `environment`, `state_store`, `pgvector` chunk count, and active LLM provider |
-| `/media-help` | (none) | Ephemeral onboarding card: commands, sample prompts, links to `docs/local-slack-testing.md` |
+| `/media-help` | (none) | Ephemeral onboarding card: commands and links to `docs/local-slack-testing.md` |
 
 RAG and agent calls share a thread-scoped BFF session id (`slack-thread-<channel>-<thread_root_ts>`) for slash commands, `@media-ops`, and DMs so follow-ups in the same Slack thread keep chat context. BFF failures surface a Block Kit error card with **Retry** (updates the same message in place).
 
@@ -39,8 +39,6 @@ OpenAPI contract: [platform/bff/openapi.yaml](https://github.com/bernardovchevez
 ## Local Slack testing
 
 Step-by-step guide (unit tests, BFF smoke, Socket Mode, manual checklist, troubleshooting): **[docs/local-slack-testing.md](docs/local-slack-testing.md)**.
-
-Copy-paste **sample prompts** for `/media-ask`, `/media-clearance`, and `@media-ops`: **[Sample prompts for localhost demos](docs/local-slack-testing.md#sample-prompts-for-localhost-demos)**.
 
 ## Quick Start (Localhost with Socket Mode)
 
